@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR CAR - Registratsiya</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#f3f4f6}
+.container{max-width:450px;margin:30px auto;background:#fff;padding:25px;border-radius:20px;box-shadow:0 4px 20px rgba(0,0,0,.12)}
+h1{text-align:center}
+input{width:100%;padding:13px;margin:8px 0;border:1px solid #ccc;border-radius:10px}
+button{width:100%;padding:14px;background:#2563eb;color:white;border:none;border-radius:10px;font-size:16px;cursor:pointer}
+button:hover{background:#1d4ed8}
+#msg{margin-top:15px;text-align:center;font-weight:bold}
+.qrid{background:#eef2ff;padding:10px;border-radius:10px;margin-bottom:15px}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🚗 QR CAR</h1>
+
+<div class="qrid">
+QR ID: <b id="qrid">...</b>
+</div>
+
+<input id="name" placeholder="Ism va familiya">
+<input id="phone" placeholder="+998901234567">
+<input id="car_model" placeholder="Mashina modeli">
+<input id="car_number" placeholder="Davlat raqami">
+<input id="info" placeholder="Qo'shimcha ma'lumot">
+<input id="username" placeholder="Login">
+<input id="password" type="password" placeholder="Parol">
+
+<button onclick="register()">Registratsiya</button>
+
+<div id="msg"></div>
+
+</div>
+
+<script>
+
+const params=new URLSearchParams(location.search);
+const qr=params.get("qr");
+
+document.getElementById("qrid").innerText=qr||"Topilmadi";
+
+async function register(){
+
+const body={
+qr_id:qr,
+name:name.value,
+phone:phone.value,
+car_model:car_model.value,
+car_number:car_number.value,
+info:info.value,
+username:username.value,
+password:password.value
+};
+
+const res=await fetch("/api/register",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify(body)
+});
+
+const data=await res.json();
+
+if(data.success){
+
+msg.style.color="green";
+msg.innerText="Registratsiya muvaffaqiyatli.";
+
+setTimeout(()=>{
+location.href="/car/"+qr;
+},1200);
+
+}else{
+
+msg.style.color="red";
+msg.innerText=data.error;
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
