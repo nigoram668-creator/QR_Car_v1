@@ -8,12 +8,14 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 app.use(express.static(path.join(__dirname, "public")));
 
 const DATA_FILE = path.join(__dirname, "cars.json");
 
 let cars = [];
 
+// Ma'lumotlarni yuklash
 if (fs.existsSync(DATA_FILE)) {
   try {
     cars = JSON.parse(
@@ -23,11 +25,13 @@ if (fs.existsSync(DATA_FILE)) {
     if (!Array.isArray(cars)) {
       cars = [];
     }
-  } catch {
+  } catch (error) {
+    console.log("cars.json o'qilmadi");
     cars = [];
   }
 }
 
+// Ma'lumotlarni saqlash
 function saveCars() {
   fs.writeFileSync(
     DATA_FILE,
@@ -36,6 +40,7 @@ function saveCars() {
   );
 }
 
+// Yangi QR ID yaratish
 function generateQRId() {
   let number = 1;
 
@@ -43,7 +48,7 @@ function generateQRId() {
     cars.some(
       car =>
         car.qr_id ===
-        'QRCAR${String(number).padStart(4, "0")}'
+        QRCAR${String(number).padStart(4, "0")}
     )
   ) {
     number++;
@@ -53,12 +58,11 @@ function generateQRId() {
 }
 
 
-/* =========================
-   QR YARATISH
-========================= */
+// ================================
+// ADMIN — QR YARATISH
+// ================================
 
 app.post("/api/admin/generate-qr", (req, res) => {
-
   let count = Number(req.body.count || 1);
 
   if (!Number.isInteger(count) || count < 1) {
@@ -72,11 +76,11 @@ app.post("/api/admin/generate-qr", (req, res) => {
   const ids = [];
 
   for (let i = 0; i < count; i++) {
-
     const qr_id = generateQRId();
 
     cars.push({
-      qr_id,
+      qr_id: qr_id,
+
       registered: false,
 
       name: "",
@@ -98,17 +102,16 @@ app.post("/api/admin/generate-qr", (req, res) => {
 
   res.json({
     success: true,
-    ids
+    ids: ids
   });
 });
 
 
-/* =========================
-   QR HAQIDA MA'LUMOT
-========================= */
+// ================================
+// QR MA'LUMOTINI OLISH
+// ================================
 
 app.get("/api/car/:id", (req, res) => {
-
   const car = cars.find(
     item => item.qr_id === req.params.id
   );
@@ -121,6 +124,7 @@ app.get("/api/car/:id", (req, res) => {
 
   res.json({
     qr_id: car.qr_id,
+
     registered: car.registered,
 
     name: car.name,
@@ -132,12 +136,11 @@ app.get("/api/car/:id", (req, res) => {
 });
 
 
-/* =========================
-   BIR MARTALIK REGISTRATSIYA
-========================= */
+// ================================
+// BIR MARTALIK REGISTRATSIYA
+// ================================
 
 app.post("/api/register", (req, res) => {
-
   const {
     qr_id,
     name,
@@ -177,9 +180,7 @@ app.post("/api/register", (req, res) => {
     });
   }
 
-
-  /* ENG MUHIM QISM */
-
+  // QR faqat BIR MARTA registratsiya qilinadi
   if (car.registered === true) {
     return res.status(409).json({
       error:
@@ -187,10 +188,10 @@ app.post("/api/register", (req, res) => {
     });
   }
 
-
   car.registered = true;
 
   car.name = String(name).trim();
+
   car.phone = String(phone).trim();
 
   car.car_model =
@@ -224,12 +225,11 @@ app.post("/api/register", (req, res) => {
 });
 
 
-/* =========================
-   LOGIN
-========================= */
+// ================================
+// LOGIN
+// ================================
 
 app.post("/api/login", (req, res) => {
-
   const {
     username,
     password
@@ -240,8 +240,7 @@ app.post("/api/login", (req, res) => {
       item.username === username &&
       item.password === password
   );
-
-  if (!car) {
+if (!car) {
     return res.status(401).json({
       error: "Login yoki parol xato"
     });
@@ -254,13 +253,12 @@ app.post("/api/login", (req, res) => {
 });
 
 
-/* =========================
-   QR PNG
-========================= */
+// ================================
+// QR PNG YARATISH
+// ================================
+
 app.get("/api/qr/:id.png", async (req, res) => {
-
   try {
-
     const car = cars.find(
       item => item.qr_id === req.params.id
     );
@@ -286,7 +284,6 @@ app.get("/api/qr/:id.png", async (req, res) => {
     res.type("png").send(image);
 
   } catch (error) {
-
     console.error(error);
 
     res.status(500).send(
@@ -296,12 +293,11 @@ app.get("/api/qr/:id.png", async (req, res) => {
 });
 
 
-/* =========================
-   QR SKANERLANGANDA
-========================= */
+// ================================
+// QR SKANERLANGANDA
+// ================================
 
 app.get("/car/:id", (req, res) => {
-
   const car = cars.find(
     item => item.qr_id === req.params.id
   );
@@ -312,36 +308,25 @@ app.get("/car/:id", (req, res) => {
     );
   }
 
-  /*
-    Agar hali registratsiya qilinmagan bo'lsa
-    registratsiya sahifasiga yuboramiz.
-  */
-
+  // Hali registratsiya qilinmagan
   if (!car.registered) {
-
     return res.redirect(
       /register.html?qr=${car.qr_id}
     );
   }
 
-
-  /*
-    Agar registratsiya qilingan bo'lsa
-    profil sahifasiga yuboramiz.
-  */
-
+  // Registratsiya qilingan
   return res.redirect(
     /car.html?qr=${car.qr_id}
   );
 });
 
 
-/* =========================
-   BOSH SAHIFA
-========================= */
+// ================================
+// BOSH SAHIFA
+// ================================
 
 app.get("/", (req, res) => {
-
   res.sendFile(
     path.join(
       __dirname,
@@ -349,22 +334,19 @@ app.get("/", (req, res) => {
       "index.html"
     )
   );
-
 });
 
 
-/* =========================
-   SERVER
-========================= */
+// ================================
+// SERVERNI ISHGA TUSHIRISH
+// ================================
 
 app.listen(
   PORT,
   "0.0.0.0",
   () => {
-
     console.log(
       QR CAR V2 ${PORT} portda ishlayapti
     );
-
   }
 );
