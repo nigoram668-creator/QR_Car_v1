@@ -43,7 +43,7 @@ function generateQRId() {
     cars.some(
       car =>
         car.qr_id ===
-        QRCAR${String(number).padStart(4, "0")}
+        QRCAR${String(number).padStart(4, "0")}'
     )
   ) {
     number++;
