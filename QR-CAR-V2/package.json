@@ -1,0 +1,13 @@
+{
+  "name": "qr-car-v2",
+  "version": "1.0.0",
+  "description": "QR CAR one-time registration system",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4"
+  }
+}
