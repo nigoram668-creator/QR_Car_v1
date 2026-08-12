@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>QR CAR</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: white;
+}
+
+.container {
+    max-width: 430px;
+    margin: auto;
+    min-height: 100vh;
+    padding: 25px 18px;
+}
+
+.card {
+    background: #1b1b1b;
+    border-radius: 25px;
+    padding: 25px;
+    box-shadow: 0 5px 25px rgba(0,0,0,.5);
+}
+
+.logo {
+    text-align: center;
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 25px;
+}
+
+.logo span {
+    color: #d4af37;
+}
+
+.car-icon {
+    text-align: center;
+    font-size: 65px;
+    margin-bottom: 10px;
+}
+
+.name {
+    text-align: center;
+    font-size: 25px;
+    font-weight: bold;
+}
+
+.model {
+    text-align: center;
+    color: #bbb;
+    margin-top: 8px;
+}
+
+.number {
+    background: white;
+    color: black;
+    text-align: center;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 22px;
+    font-weight: bold;
+    margin: 20px 0;
+}
+
+.info {
+    background: #252525;
+    padding: 15px;
+    border-radius: 12px;
+    margin-top: 10px;
+}
+
+.phone {
+    display: block;
+    text-decoration: none;
+    text-align: center;
+    background: #16a34a;
+    color: white;
+    padding: 15px;
+    border-radius: 12px;
+    margin-top: 20px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.qrid {
+    text-align: center;
+    color: #777;
+    font-size: 13px;
+    margin-top: 20px;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="card">
+
+<div class="logo">
+    🚗 <span>QR CAR</span>
+</div>
+
+<div class="car-icon">
+    🚘
+</div>
+
+<div class="name" id="name">
+    Yuklanmoqda...
+</div>
+
+<div class="model" id="model"></div>
+
+<div class="number" id="number"></div>
+
+<div class="info" id="info"></div>
+
+<a id="phone"
+   class="phone"
+   href="#">
+   📞 Qo‘ng‘iroq qilish
+</a>
+
+<div class="qrid" id="qrid"></div>
+
+</div>
+
+</div>
+
+
+<script>
+
+const params =
+    new URLSearchParams(
+        window.location.search
+    );
+
+const qr =
+    params.get("qr");
+
+
+document.getElementById("qrid").innerText =
+    qr ? "QR ID: " + qr : "";
+
+
+if (!qr) {
+
+    document.getElementById("name").innerText =
+        "QR ID topilmadi";
+
+} else {
+
+    loadCar();
+
+}
+
+
+async function loadCar() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/car/" +
+                encodeURIComponent(qr)
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            document.getElementById("name").innerText =
+                data.error || "Xatolik";
+
+            return;
+
+        }
+
+
+        /*
+         * Agar QR hali registratsiya qilinmagan
+         * bo'lsa registratsiyaga yuboramiz.
+         */
+
+        if (!data.registered) {
+
+            window.location.href =
+                "/register.html?qr=" +
+                encodeURIComponent(qr);
+
+            return;
+
+        }
+
+
+        document.getElementById("name").innerText =
+            data.name || "Noma'lum";
+
+
+        document.getElementById("model").innerText =
+            data.car_model || "";
+
+
+        document.getElementById("number").innerText =
+            data.car_number || "";
+
+
+        document.getElementById("info").innerText =
+            data.info || "Qo‘shimcha ma'lumot yo‘q";
+
+
+        const phone =
+            document.getElementById("phone");
+
+
+        if (data.phone) {
+
+            phone.href =
+                "tel:" + data.phone;
+
+        } else {
+
+            phone.style.display =
+                "none";
+
+        }
+
+    } catch (error) {
+
+        document.getElementById("name").innerText =
+            "Server bilan aloqa yo‘q";
+
+    }
+
+}
+
+</script>
+
+</body>
+</html>
