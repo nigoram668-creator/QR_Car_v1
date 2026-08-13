@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>QR CAR V2 - Admin</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: #1683f5;
+            color: white;
+            font-size: 17px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #096ed6;
+        }
+
+        #message {
+            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .qr-list {
+            margin-top: 20px;
+        }
+
+        .qr-item {
+            border: 1px solid #ddd;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .qr-item img {
+            width: 220px;
+            max-width: 100%;
+            margin: 15px auto;
+            display: block;
+        }
+
+        .qr-id {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .link {
+            word-break: break-all;
+            color: #555;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .download {
+            display: inline-block;
+            padding: 12px 18px;
+            background: #16a34a;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="card">
+
+        <h1>🚗 QR CAR V2</h1>
+
+        <div class="subtitle">
+            ADMIN PANEL
+        </div>
+
+        <label>Nechta QR kod yaratamiz?</label>
+
+        <input
+            type="number"
+            id="count"
+            value="1"
+            min="1"
+            max="100"
+        >
+
+        <button onclick="generateQR()">
+            ➕ QR KOD YARATISH
+        </button>
+
+        <div id="message"></div>
+
+    </div>
+
+
+    <div class="card">
+
+        <h2>📦 Yaratilgan QR kodlar</h2>
+
+        <div id="qrList" class="qr-list"></div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+async function generateQR() {
+
+    const countInput =
+        document.getElementById("count");
+
+    const message =
+        document.getElementById("message");
+
+    const qrList =
+        document.getElementById("qrList");
+
+    const count =
+        Number(countInput.value);
+
+    if (!count || count < 1) {
+
+        message.innerText =
+            "❌ Kamida 1 ta QR kod kiriting";
+
+        return;
+    }
+
+    message.innerText =
+        "⏳ QR kodlar yaratilmoqda...";
+
+    try {
+
+        const response =
+            await fetch("/api/admin/generate-qr", {
+
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+body: JSON.stringify({
+                    count: count
+                })
+
+            });
+
+        const data =
+            await response.json();
+
+        if (!response.ok || !data.success) {
+
+            message.innerText =
+                "❌ " +
+                (data.error ||
+                 "Xatolik yuz berdi");
+
+            return;
+        }
+
+        message.innerText =
+            "✅ QR kodlar muvaffaqiyatli yaratildi";
+
+        for (const id of data.ids) {
+
+            addQR(id);
+
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        message.innerText =
+            "❌ Server bilan aloqa yo'q";
+
+    }
+
+}
+
+
+function addQR(id) {
+
+    const qrList =
+        document.getElementById("qrList");
+
+    const item =
+        document.createElement("div");
+
+    item.className = "qr-item";
+
+    const qrImage =
+        "/api/qr/" +
+        encodeURIComponent(id) +
+        ".png";
+
+    const currentUrl =
+        window.location.origin +
+        "/car/" +
+        id;
+
+    item.innerHTML =
+
+        '<div class="qr-id">' +
+        id +
+        '</div>' +
+
+        '<img src="' +
+        qrImage +
+        '" alt="QR Code">' +
+
+        '<div class="link">' +
+        currentUrl +
+        '</div>' +
+
+        '<a class="download" ' +
+        'href="' +
+        qrImage +
+        '" ' +
+        'download="' +
+        id +
+        '.png">' +
+        '⬇️ QR KODNI YUKLAB OLISH' +
+        '</a>';
+
+    qrList.prepend(item);
+
+}
+
+</script>
+
+</body>
+</html>
