@@ -6,347 +6,485 @@ const QRCode = require("qrcode");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const DATA_FILE = path.join(__dirname, "cars.json");
+const PUBLIC_DIR = path.join(__dirname, "public");
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-app.use(express.static(path.join(__dirname, "public")));
-
-const DATA_FILE = path.join(__dirname, "cars.json");
+app.use(express.static(PUBLIC_DIR));
 
 let cars = [];
 
-// Ma'lumotlarni yuklash
-if (fs.existsSync(DATA_FILE)) {
-  try {
-    cars = JSON.parse(
-      fs.readFileSync(DATA_FILE, "utf8")
-    );
+// ==============================
+// MA'LUMOTLARNI YUKLASH
+// ==============================
 
-    if (!Array.isArray(cars)) {
-      cars = [];
+function loadCars() {
+    if (!fs.existsSync(DATA_FILE)) {
+        cars = [];
+        saveCars();
+        return;
     }
-  } catch (error) {
-    console.log("cars.json o'qilmadi");
-    cars = [];
-  }
+
+    try {
+        const data = fs.readFileSync(DATA_FILE, "utf8");
+
+        if (data.trim() === "") {
+            cars = [];
+        } else {
+            cars = JSON.parse(data);
+        }
+
+        if (!Array.isArray(cars)) {
+            cars = [];
+        }
+
+    } catch (error) {
+        console.log("cars.json o'qishda xato");
+        cars = [];
+    }
 }
 
-// Ma'lumotlarni saqlash
+// ==============================
+// MA'LUMOTLARNI SAQLASH
+// ==============================
+
 function saveCars() {
-  fs.writeFileSync(
-    DATA_FILE,
-    JSON.stringify(cars, null, 2),
-    "utf8"
-  );
-}
-
-// Yangi QR ID yaratish
-function generateQRId() {
-  let number = 1;
-
-  while (
-    cars.some(
-      car =>
-        car.qr_id ===
-        QRCAR${String(number).padStart(4, "0")}
-    )
-  ) {
-    number++;
-  }
-
-  return QRCAR${String(number).padStart(4, "0")};
-}
-
-
-// ================================
-// ADMIN — QR YARATISH
-// ================================
-
-app.post("/api/admin/generate-qr", (req, res) => {
-  let count = Number(req.body.count || 1);
-
-  if (!Number.isInteger(count) || count < 1) {
-    count = 1;
-  }
-
-  if (count > 1000) {
-    count = 1000;
-  }
-
-  const ids = [];
-
-  for (let i = 0; i < count; i++) {
-    const qr_id = generateQRId();
-
-    cars.push({
-      qr_id: qr_id,
-
-      registered: false,
-
-      name: "",
-      phone: "",
-      car_model: "",
-      car_number: "",
-      info: "",
-
-      username: "",
-      password: "",
-
-      created_at: null
-    });
-
-    ids.push(qr_id);
-  }
-
-  saveCars();
-
-  res.json({
-    success: true,
-    ids: ids
-  });
-});
-
-
-// ================================
-// QR MA'LUMOTINI OLISH
-// ================================
-
-app.get("/api/car/:id", (req, res) => {
-  const car = cars.find(
-    item => item.qr_id === req.params.id
-  );
-
-  if (!car) {
-    return res.status(404).json({
-      error: "QR ID topilmadi"
-    });
-  }
-
-  res.json({
-    qr_id: car.qr_id,
-
-    registered: car.registered,
-
-    name: car.name,
-    phone: car.phone,
-    car_model: car.car_model,
-    car_number: car.car_number,
-    info: car.info
-  });
-});
-
-
-// ================================
-// BIR MARTALIK REGISTRATSIYA
-// ================================
-
-app.post("/api/register", (req, res) => {
-  const {
-    qr_id,
-    name,
-    phone,
-    car_model,
-    car_number,
-    info,
-    username,
-    password
-  } = req.body;
-
-  if (!qr_id) {
-    return res.status(400).json({
-      error: "QR ID kerak"
-    });
-  }
-
-  if (!name || !phone) {
-    return res.status(400).json({
-      error: "Ism va telefon raqam kerak"
-    });
-  }
-
-  if (!username || !password) {
-    return res.status(400).json({
-      error: "Login va parol kerak"
-    });
-  }
-
-  const car = cars.find(
-    item => item.qr_id === qr_id
-  );
-
-  if (!car) {
-    return res.status(404).json({
-      error: "Bunday QR mavjud emas"
-    });
-  }
-
-  // QR faqat BIR MARTA registratsiya qilinadi
-  if (car.registered === true) {
-    return res.status(409).json({
-      error:
-        "Bu QR kod allaqachon ro'yxatdan o'tgan"
-    });
-  }
-
-  car.registered = true;
-
-  car.name = String(name).trim();
-
-  car.phone = String(phone).trim();
-
-  car.car_model =
-    String(car_model || "").trim();
-
-  car.car_number =
-    String(car_number || "").trim();
-
-  car.info =
-    String(info || "").trim();
-
-  car.username =
-    String(username).trim();
-
-  car.password =
-    String(password);
-
-  car.created_at =
-    new Date().toISOString();
-
-  saveCars();
-
-  res.json({
-    success: true,
-
-    message:
-      "Registratsiya muvaffaqiyatli",
-
-    qr_id: car.qr_id
-  });
-});
-
-
-// ================================
-// LOGIN
-// ================================
-
-app.post("/api/login", (req, res) => {
-  const {
-    username,
-    password
-  } = req.body;
-
-  const car = cars.find(
-    item =>
-      item.username === username &&
-      item.password === password
-  );
-if (!car) {
-    return res.status(401).json({
-      error: "Login yoki parol xato"
-    });
-  }
-
-  res.json({
-    success: true,
-    qr_id: car.qr_id
-  });
-});
-
-
-// ================================
-// QR PNG YARATISH
-// ================================
-
-app.get("/api/qr/:id.png", async (req, res) => {
-  try {
-    const car = cars.find(
-      item => item.qr_id === req.params.id
+    fs.writeFileSync(
+        DATA_FILE,
+        JSON.stringify(cars, null, 2),
+        "utf8"
     );
+}
+
+// ==============================
+// QR ID YARATISH
+// ==============================
+
+function generateQRId() {
+
+    let number = 1;
+
+    while (true) {
+
+        const id =
+            "QRCAR" +
+            String(number).padStart(4, "0");
+
+        const exists = cars.some(function(car) {
+            return car.qr_id === id;
+        });
+
+        if (!exists) {
+            return id;
+        }
+
+        number++;
+    }
+}
+
+// ==============================
+// QR TOPISH
+// ==============================
+
+function findCar(id) {
+
+    return cars.find(function(car) {
+        return car.qr_id === id;
+    });
+
+}
+
+// Yuklash
+loadCars();
+
+
+// ==============================
+// ADMIN QR YARATISH
+// ==============================
+
+app.post("/api/admin/generate-qr", function(req, res) {
+
+    let count = Number(req.body.count || 1);
+
+    if (!Number.isInteger(count)) {
+        count = 1;
+    }
+
+    if (count < 1) {
+        count = 1;
+    }
+
+    if (count > 1000) {
+        count = 1000;
+    }
+
+    const ids = [];
+
+    for (let i = 0; i < count; i++) {
+
+        const qrId = generateQRId();
+
+        cars.push({
+
+            qr_id: qrId,
+
+            registered: false,
+
+            name: "",
+            phone: "",
+            car_model: "",
+            car_number: "",
+            info: "",
+
+            username: "",
+            password: "",
+
+            created_at: new Date().toISOString()
+
+        });
+
+        ids.push(qrId);
+    }
+
+    saveCars();
+
+    res.json({
+        success: true,
+        ids: ids
+    });
+
+});
+
+
+// ==============================
+// QR MA'LUMOTINI OLISH
+// ==============================
+
+app.get("/api/car/:id", function(req, res) {
+
+    const car = findCar(req.params.id);
 
     if (!car) {
-      return res.status(404).send(
-        "QR ID topilmadi"
-      );
+
+        return res.status(404).json({
+            success: false,
+            error: "QR ID topilmadi"
+        });
+
     }
 
-    const base =
-      ${req.protocol}://${req.get("host")};
+    res.json({
 
-    const url =
-      ${base}/car/${car.qr_id};
+        success: true,
 
-    const image =
-      await QRCode.toBuffer(url, {
-        width: 600,
-        margin: 2
-      });
+        qr_id: car.qr_id,
 
-    res.type("png").send(image);
+        registered: car.registered,
 
-  } catch (error) {
-    console.error(error);
+        name: car.name,
+        phone: car.phone,
+        car_model: car.car_model,
+        car_number: car.car_number,
+        info: car.info
 
-    res.status(500).send(
-      "QR yaratishda xatolik"
-    );
-  }
+    });
+
 });
 
 
-// ================================
+// ==============================
+// REGISTRATSIYA
+// ==============================
+
+app.post("/api/register", function(req, res) {
+
+    const qrId =
+        String(req.body.qr_id || "").trim();
+
+    const name =
+        String(req.body.name || "").trim();
+
+    const phone =
+        String(req.body.phone || "").trim();
+
+    const carModel =
+        String(req.body.car_model || "").trim();
+
+    const carNumber =
+        String(req.body.car_number || "").trim();
+
+    const info =
+        String(req.body.info || "").trim();
+
+    const username =
+        String(req.body.username || "").trim();
+
+    const password =
+        String(req.body.password || "");
+
+    if (!qrId) {
+return res.status(400).json({
+            success: false,
+            error: "QR ID kerak"
+        });
+
+    }
+
+    if (!name) {
+
+        return res.status(400).json({
+            success: false,
+            error: "Ismni kiriting"
+        });
+
+    }
+
+    if (!phone) {
+
+        return res.status(400).json({
+            success: false,
+            error: "Telefon raqamni kiriting"
+        });
+
+    }
+
+    if (!username || !password) {
+
+        return res.status(400).json({
+            success: false,
+            error: "Login va parol kerak"
+        });
+
+    }
+
+    const car = findCar(qrId);
+
+    if (!car) {
+
+        return res.status(404).json({
+            success: false,
+            error: "Bunday QR kod mavjud emas"
+        });
+
+    }
+
+    // FAQAT BIR MARTA REGISTRATSIYA
+
+    if (car.registered === true) {
+
+        return res.status(409).json({
+            success: false,
+            error: "Bu QR kod allaqachon registratsiya qilingan"
+        });
+
+    }
+
+    // LOGIN TAKRORLANMASIN
+
+    const loginExists = cars.some(function(item) {
+
+        return item.username === username;
+
+    });
+
+    if (loginExists) {
+
+        return res.status(409).json({
+            success: false,
+            error: "Bu login allaqachon ishlatilgan"
+        });
+
+    }
+
+    car.registered = true;
+
+    car.name = name;
+    car.phone = phone;
+    car.car_model = carModel;
+    car.car_number = carNumber;
+    car.info = info;
+
+    car.username = username;
+    car.password = password;
+
+    car.created_at =
+        new Date().toISOString();
+
+    saveCars();
+
+    res.json({
+
+        success: true,
+
+        message: "Registratsiya muvaffaqiyatli",
+
+        qr_id: car.qr_id
+
+    });
+
+});
+
+
+// ==============================
+// LOGIN
+// ==============================
+
+app.post("/api/login", function(req, res) {
+
+    const username =
+        String(req.body.username || "").trim();
+
+    const password =
+        String(req.body.password || "");
+
+    const car = cars.find(function(item) {
+
+        return (
+            item.username === username &&
+            item.password === password
+        );
+
+    });
+
+    if (!car) {
+
+        return res.status(401).json({
+            success: false,
+            error: "Login yoki parol xato"
+        });
+
+    }
+
+    res.json({
+
+        success: true,
+
+        qr_id: car.qr_id
+
+    });
+
+});
+
+
+// ==============================
+// QR PNG
+// ==============================
+
+app.get("/api/qr/:id.png", async function(req, res) {
+
+    const car = findCar(req.params.id);
+
+    if (!car) {
+
+        return res.status(404).send(
+            "QR ID topilmadi"
+        );
+
+    }
+
+    try {
+
+        const baseUrl =
+            req.protocol +
+            "://" +
+            req.get("host");
+
+        const qrUrl =
+            baseUrl +
+            "/car/" +
+            car.qr_id;
+
+        const image =
+            await QRCode.toBuffer(qrUrl, {
+
+                width: 600,
+
+                margin: 2
+
+            });
+
+        res.type("png");
+
+        res.send(image);
+
+    } catch (error) {
+
+        console.log(
+            "QR yaratishda xato:",
+            error.message
+        );
+
+        res.status(500).send(
+            "QR yaratishda xatolik"
+        );
+
+    }
+
+});
+
+
+// ==============================
 // QR SKANERLANGANDA
-// ================================
+// ==============================
 
-app.get("/car/:id", (req, res) => {
-  const car = cars.find(
-    item => item.qr_id === req.params.id
-  );
+app.get("/car/:id", function(req, res) {
 
-  if (!car) {
-    return res.status(404).send(
-      "QR ID topilmadi"
-    );
-  }
+    const car = findCar(req.params.id);
 
-  // Hali registratsiya qilinmagan
-  if (!car.registered) {
+    if (!car) {
+
+        return res.status(404).send(
+            "QR ID topilmadi"
+        );
+
+    }
+
+    if (car.registered === false) {
+
+        return res.redirect(
+            "/register.html?qr=" +
+            encodeURIComponent(car.qr_id)
+        );
+
+    }
+
     return res.redirect(
-      /register.html?qr=${car.qr_id}
+        "/car.html?qr=" +
+        encodeURIComponent(car.qr_id)
     );
-  }
 
-  // Registratsiya qilingan
-  return res.redirect(
-    /car.html?qr=${car.qr_id}
-  );
 });
 
 
-// ================================
+// ==============================
 // BOSH SAHIFA
-// ================================
+// ==============================
 
-app.get("/", (req, res) => {
-  res.sendFile(
-    path.join(
-      __dirname,
-      "public",
-      "index.html"
-    )
-  );
+app.get("/", function(req, res) {
+
+    res.sendFile(
+        path.join(
+            PUBLIC_DIR,
+            "index.html"
+        )
+    );
+
 });
 
 
-// ================================
-// SERVERNI ISHGA TUSHIRISH
-// ================================
-
+// ==============================
+// SERVER
+// ==============================
 app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-    console.log(
-      QR CAR V2 ${PORT} portda ishlayapti
-    );
-  }
+    PORT,
+    "0.0.0.0",
+    function() {
+
+        console.log(
+            "QR CAR V2 server ishlayapti: port " +
+            PORT
+        );
+
+    }
 );
